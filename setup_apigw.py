@@ -1,14 +1,16 @@
 import boto3
 import re
 
-region     = 'ap-northeast-2'
-account_id = '381492199246'
-fn         = 'kt-sales-training-chatbot'
-bucket     = 'kt-sales-training-web-zyroij'
+region = 'ap-northeast-2'
+fn     = 'kt-sales-training-chatbot'
+bucket = 'kt-sales-training-web-<your-suffix>'   # 실제 버킷명으로 교체
 
 apigw = boto3.client('apigatewayv2', region_name=region)
 lam   = boto3.client('lambda',       region_name=region)
 s3    = boto3.client('s3',           region_name=region)
+sts   = boto3.client('sts',          region_name=region)
+
+account_id = sts.get_caller_identity()['Account']
 
 # 1. HTTP API 생성 (CORS 포함)
 api = apigw.create_api(

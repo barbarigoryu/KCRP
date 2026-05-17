@@ -146,14 +146,14 @@ python setup_analyzer.py
 
 출력 예시:
 ```
-[OK]   Data bucket created: kt-sales-training-data-199246
+[OK]   Data bucket created: kt-sales-training-data-<suffix>
 [OK]   Generated new TRAINING_API_KEY
-[OK]   Lambda env updated: DATA_BUCKET=kt-sales-training-data-199246
+[OK]   Lambda env updated: DATA_BUCKET=kt-sales-training-data-<suffix>
 [INFO] API URL: https://xxxxxxxxxx.execute-api.ap-northeast-2.amazonaws.com/
-[OK]   training.html uploaded to s3://kt-sales-training-web-zyroij/
+[OK]   training.html uploaded to s3://kt-sales-training-web-<suffix>/
 ...
   API Key : <generated_key>
-  Web URL : http://kt-sales-training-web-zyroij.s3-website.ap-northeast-2.amazonaws.com
+  Web URL : http://kt-sales-training-web-<suffix>.s3-website.ap-northeast-2.amazonaws.com
 ```
 
 ---

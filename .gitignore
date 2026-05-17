@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+lambda.zip
+*.zip
+
+# Temporary deploy files
+.tmp_upload.py
+*.tmp
+
+# Debug / test scripts (contain Lambda function references)
+.test_model.py
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# AWS
+.aws/
