@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영업 스크립트 분석기 - KT 판매 교육</title>
+<style>
+  :root {
+    --kt-red: #E31837;
+    --kt-dark: #1a1a2e;
+    --kt-gray: #f5f5f5;
+    --border: #e0e0e0;
+    --text: #333;
+    --muted: #888;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    background: #f0f2f5;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────── */
+  .header {
+    background: var(--kt-dark);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .header .logo { font-size: 22px; font-weight: 800; color: var(--kt-red); }
+  .header .title { font-size: 16px; font-weight: 600; }
+  .header .nav-link {
+    margin-left: auto;
+    color: #aaa;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 12px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    transition: all .2s;
+  }
+  .header .nav-link:hover { color: #fff; border-color: #aaa; }
+
+  /* ── Layout ─────────────────────────────────── */
+  .container { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* ── Upload card ─────────────────────────────── */
+  .upload-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    margin-bottom: 24px;
+  }
+  .upload-card h2 { font-size: 20px; margin-bottom: 20px; }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--kt-gray);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--kt-red);
+    background: #fff5f7;
+  }
+  .drop-zone .icon { font-size: 48px; margin-bottom: 12px; }
+  .drop-zone .hint { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .drop-zone.has-file { border-color: #27ae60; background: #f0fff4; }
+  .drop-zone.has-file .icon::before { content: '✅'; }
+  #fileInput { display: none; }
+
+  .file-info {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #f0fff4;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #27ae60;
+    font-weight: 600;
+  }
+  .file-info.show { display: block; }
+
+  .analyze-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: var(--kt-red);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .analyze-btn:hover:not(:disabled) { background: #c0122c; }
+  .analyze-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* ── Spinner ─────────────────────────────────── */
+  .spinner-wrap {
+    display: none;
+    text-align: center;
+    padding: 40px;
+  }
+  .spinner-wrap.show { display: block; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--kt-red);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Results ─────────────────────────────────── */
+  .results { display: none; }
+  .results.show { display: block; }
+
+  .section-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  }
+  .section-card h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--kt-red);
+    color: #fff;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  /* ── Stages ─────────────────────────────────── */
+  .stages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .stage-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    background: var(--kt-gray);
+  }
+  .stage-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--kt-red);
+    margin-bottom: 4px;
+  }
+  .stage-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .stage-name:focus { outline: 1px solid var(--kt-red); border-radius: 4px; }
+  .stage-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    resize: none;
+    font-family: inherit;
+    line-height: 1.5;
+  }
+  .stage-desc:focus { outline: 1px solid var(--kt-red); border-radius: 4px; }
+  .stage-actions-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+  .stage-actions-list { list-style: none; }
+  .stage-actions-list li {
+    font-size: 12px;
+    color: #555;
+    padding: 2px 0;
+    padding-left: 12px;
+    position: relative;
+  }
+  .stage-actions-list li::before { content: '•'; position: absolute; left: 0; color: var(--kt-red); }
+  .stage-success {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #27ae60;
+    font-weight: 600;
+  }
+
+  /* ── Prompt textareas ────────────────────────── */
+  .prompt-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .prompt-area {
+    width: 100%;
+    min-height: 140px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    color: var(--text);
+    background: var(--kt-gray);
+    margin-bottom: 20px;
+    transition: border-color .2s;
+  }
+  .prompt-area:focus { outline: none; border-color: var(--kt-red); background: #fff; }
+  .prompt-area:last-child { margin-bottom: 0; }
+
+  /* ── Save section ────────────────────────────── */
+  .save-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  }
+  .save-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+
+  .input-group { margin-bottom: 16px; }
+  .input-group label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .input-group input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--kt-gray);
+    transition: border-color .2s;
+  }
+  .input-group input:focus { outline: none; border-color: var(--kt-red); background: #fff; }
+
+  .save-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #1a1a2e;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .save-btn:hover:not(:disabled) { background: #0d0d1a; }
+  .save-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* ── Toast ───────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #222;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform .3s;
+    z-index: 999;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #27ae60; }
+  .toast.error   { background: #e74c3c; }
+
+  /* ── Error box ───────────────────────────────── */
+  .error-box {
+    display: none;
+    background: #fff5f5;
+    border: 1px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 16px;
+    color: #c0392b;
+    font-size: 14px;
+    margin-top: 16px;
+  }
+  .error-box.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">KT</span>
+  <span class="title">영업 스크립트 분석기</span>
+  <a href="index.html" class="nav-link">← 메인</a>
+</div>
+
+<div class="container">
+
+  <!-- Upload -->
+  <div class="upload-card">
+    <h2>📄 영업 스크립트 업로드</h2>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📂</div>
+      <div>파일을 여기에 끌어다 놓거나 클릭하세요</div>
+      <div class="hint">.txt / .md 파일 지원</div>
+    </div>
+    <input type="file" id="fileInput" accept=".txt,.md">
+    <div class="file-info" id="fileInfo"></div>
+    <div class="error-box" id="uploadError"></div>
+    <button class="analyze-btn" id="analyzeBtn" disabled>스크립트 분석하기</button>
+  </div>
+
+  <!-- Spinner -->
+  <div class="spinner-wrap" id="spinner">
+    <div class="spinner"></div>
+    <div>Claude AI가 스크립트를 분석 중입니다…</div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <!-- Stages -->
+    <div class="section-card">
+      <h3>🗂️ 진행 단계 <span class="badge" id="stageCount">0</span></h3>
+      <div class="stages-grid" id="stagesGrid"></div>
+    </div>
+
+    <!-- Agent Prompts -->
+    <div class="section-card">
+      <h3>🤖 에이전트 프롬프트</h3>
+
+      <label class="prompt-label">👤 고객 페르소나 에이전트</label>
+      <textarea class="prompt-area" id="personaPrompt" rows="6"></textarea>
+
+      <label class="prompt-label">💡 힌트 제공 에이전트</label>
+      <textarea class="prompt-area" id="hintPrompt" rows="6"></textarea>
+
+      <label class="prompt-label">📊 세션 평가 에이전트</label>
+      <textarea class="prompt-area" id="evaluationPrompt" rows="6"></textarea>
+
+      <label class="prompt-label">🎯 약점 기반 추천 에이전트</label>
+      <textarea class="prompt-area" id="recommendationPrompt" rows="6"></textarea>
+    </div>
+
+    <!-- Save -->
+    <div class="save-card">
+      <h3>💾 S3에 저장</h3>
+      <div class="input-group">
+        <label>스크립트 이름 (저장 식별용)</label>
+        <input type="text" id="scriptName" placeholder="예: KT iPhone 16 프로 영업 스크립트 v1">
+      </div>
+      <button class="save-btn" id="saveBtn">분석 결과 저장하기</button>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://your-api-url.execute-api.ap-northeast-2.amazonaws.com/';
+const API_KEY = 'SET_API_KEY_HERE';
+
+let scriptContent = '';
+let analysisResult = null;
+
+// ── File handling ──────────────────────────────────────────────────────────
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo  = document.getElementById('fileInfo');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const uploadError = document.getElementById('uploadError');
+
+function handleFile(file) {
+  if (!file) return;
+  if (!/\.(txt|md)$/i.test(file.name)) {
+    showUploadError('.txt 또는 .md 파일만 업로드 가능합니다.');
+    return;
+  }
+  uploadError.classList.remove('show');
+  const reader = new FileReader();
+  reader.onload = e => {
+    scriptContent = e.target.result.trim();
+    if (!scriptContent) {
+      showUploadError('파일이 비어 있습니다.');
+      return;
+    }
+    dropZone.classList.add('has-file');
+    dropZone.querySelector('.icon').textContent = '✅';
+    dropZone.querySelector('div:nth-child(2)').textContent = file.name;
+    fileInfo.textContent = `파일 로드 완료: ${file.name} (${(scriptContent.length).toLocaleString()}자)`;
+    fileInfo.classList.add('show');
+    analyzeBtn.disabled = false;
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function showUploadError(msg) {
+  uploadError.textContent = msg;
+  uploadError.classList.add('show');
+}
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+// ── Analyze ────────────────────────────────────────────────────────────────
+
+function callAPI(action) {
+  const hdrs = { 'Content-Type': 'application/json' };
+  if (API_KEY && API_KEY !== 'SET_API_KEY_HERE') hdrs['X-Training-Key'] = API_KEY;
+  return fetch(API, {
+    method: 'POST',
+    headers: hdrs,
+    body: JSON.stringify({ action, script_content: scriptContent }),
+  }).then(async res => {
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || `${action} 실패 (${res.status})`);
+    return data;
+  });
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!scriptContent) return;
+  analyzeBtn.disabled = true;
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('results').classList.remove('show');
+  uploadError.classList.remove('show');
+
+  try {
+    const [stagesData, promptsData] = await Promise.all([
+      callAPI('analyze_stages'),
+      callAPI('analyze_prompts'),
+    ]);
+    renderResults({ ...stagesData, ...promptsData });
+  } catch (e) {
+    showUploadError(`분석 오류: ${e.message}`);
+  } finally {
+    analyzeBtn.disabled = false;
+    document.getElementById('spinner').classList.remove('show');
+  }
+});
+
+// ── Render results ─────────────────────────────────────────────────────────
+
+function renderResults(data) {
+  analysisResult = data;
+
+  // Script name suggestion
+  if (data.script_title) {
+    document.getElementById('scriptName').value = data.script_title;
+  }
+
+  // Stages
+  const stages = data.stages || [];
+  document.getElementById('stageCount').textContent = stages.length;
+  const grid = document.getElementById('stagesGrid');
+  grid.innerHTML = '';
+  stages.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'stage-item';
+    el.innerHTML = `
+      <div class="stage-num">STAGE ${s.id}</div>
+      <input class="stage-name" value="${esc(s.name)}" data-stage="${s.id}" data-field="name">
+      <textarea class="stage-desc" rows="2" data-stage="${s.id}" data-field="description">${esc(s.description)}</textarea>
+      <div class="stage-actions-label">핵심 행동</div>
+      <ul class="stage-actions-list">${(s.key_actions||[]).map(a=>`<li>${esc(a)}</li>`).join('')}</ul>
+      <div class="stage-success">✓ ${esc(s.success_criteria)}</div>
+    `;
+    grid.appendChild(el);
+  });
+
+  // Wire up live edits back to analysisResult
+  grid.querySelectorAll('[data-stage]').forEach(el => {
+    el.addEventListener('input', () => {
+      const idx = analysisResult.stages.findIndex(s => s.id == el.dataset.stage);
+      if (idx >= 0) analysisResult.stages[idx][el.dataset.field] = el.value;
+    });
+  });
+
+  // Agent prompts
+  document.getElementById('personaPrompt').value        = data.persona_prompt        || '';
+  document.getElementById('hintPrompt').value           = data.hint_prompt           || '';
+  document.getElementById('evaluationPrompt').value     = data.evaluation_prompt     || '';
+  document.getElementById('recommendationPrompt').value = data.recommendation_prompt || '';
+
+  document.getElementById('results').classList.add('show');
+}
+
+// ── Collect edited data ────────────────────────────────────────────────────
+
+function collectData() {
+  return {
+    ...analysisResult,
+    persona_prompt:        document.getElementById('personaPrompt').value,
+    hint_prompt:           document.getElementById('hintPrompt').value,
+    evaluation_prompt:     document.getElementById('evaluationPrompt').value,
+    recommendation_prompt: document.getElementById('recommendationPrompt').value,
+  };
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  if (!analysisResult) return;
+  const scriptName = document.getElementById('scriptName').value.trim() || '미분류 스크립트';
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = '저장 중…';
+
+  try {
+    const saveHdrs = { 'Content-Type': 'application/json' };
+    if (API_KEY && API_KEY !== 'SET_API_KEY_HERE') saveHdrs['X-Training-Key'] = API_KEY;
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: saveHdrs,
+      body: JSON.stringify({
+        action: 'save',
+        script_name: scriptName,
+        data: collectData(),
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || '저장 실패');
+    showToast(`저장 완료! (ID: ${result.id})`, 'success');
+  } catch (e) {
+    showToast(`저장 오류: ${e.message}`, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '분석 결과 저장하기';
+  }
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+</script>
+</body>
+</html>

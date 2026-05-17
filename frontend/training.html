@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KT 훈련 Agent</title>
+<style>
+:root {
+  --red: #E31837; --red-dk: #b8122c;
+  --dark: #1a1a2e; --bg: #f0f2f5;
+  --white: #fff; --border: #e0e0e0;
+  --gray: #888; --green: #27ae60;
+  --muted: #f5f5f5;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+       background: var(--bg); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── screens ── */
+.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* ── shared header ── */
+.top-bar {
+  background: var(--dark); color: #fff; padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.top-bar .logo { font-size: 20px; font-weight: 900; color: var(--red); }
+.top-bar .title { font-size: 15px; font-weight: 600; }
+.top-bar .home-btn {
+  margin-left: auto; color: #aaa; text-decoration: none; font-size: 13px;
+  padding: 5px 10px; border: 1px solid #555; border-radius: 7px; transition: all .2s;
+  background: none; cursor: pointer; font-family: inherit;
+}
+.top-bar .home-btn:hover { color: #fff; border-color: #aaa; }
+
+/* ════════════════════════════════
+   SCREEN 1 · Script Selection
+   ════════════════════════════════ */
+#s-select { background: var(--bg); }
+#s-select .body { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+.select-intro { text-align: center; padding: 20px 0 28px; }
+.select-intro h2 { font-size: 22px; font-weight: 800; color: var(--dark); margin-bottom: 6px; }
+.select-intro p  { font-size: 14px; color: var(--gray); }
+
+/* 세션 복원 배너 */
+.resume-banner {
+  background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
+}
+.resume-banner .resume-info { flex: 1; font-size: 13px; color: #2e7d32; line-height: 1.5; }
+.resume-banner .resume-info strong { font-size: 14px; display: block; margin-bottom: 2px; }
+.resume-btn {
+  background: var(--green); color: #fff; border: none; border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  font-family: inherit;
+}
+.resume-btn:hover { background: #219150; }
+.dismiss-btn {
+  background: none; border: none; color: #888; cursor: pointer; font-size: 18px; padding: 0 4px;
+}
+
+.script-card {
+  background: var(--white); border-radius: 14px; padding: 20px;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); border: 2px solid transparent;
+  cursor: pointer; transition: all .2s;
+}
+.script-card:hover { border-color: var(--red); box-shadow: 0 4px 16px rgba(227,24,55,.15); }
+.script-icon { width: 48px; height: 48px; background: #fff5f7; border-radius: 12px;
+               display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.script-info { flex: 1; min-width: 0; }
+.script-name  { font-size: 16px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.script-meta  { font-size: 12px; color: var(--gray); margin-top: 3px; }
+.script-stages { font-size: 12px; font-weight: 700; color: var(--red);
+                 background: #fff0f3; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+.no-scripts { text-align: center; padding: 60px 20px; color: var(--gray); }
+.no-scripts .icon { font-size: 48px; margin-bottom: 12px; }
+.no-scripts a { color: var(--red); font-weight: 700; text-decoration: none; }
+.loading-spinner { text-align: center; padding: 60px; color: var(--gray); }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border);
+           border-top-color: var(--red); border-radius: 50%;
+           animation: spin .7s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ════════════════════════════════
+   SCREEN 2 · Chat
+   ════════════════════════════════ */
+/* Stage progress bar */
+.stage-bar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 12px 20px; flex-shrink: 0;
+}
+.stage-steps { display: flex; align-items: center; gap: 0; }
+.stage-step {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; position: relative;
+}
+.stage-step:not(:last-child)::after {
+  content: ''; position: absolute; top: 12px; left: 60%; width: 80%; height: 2px;
+  background: var(--border); z-index: 0;
+}
+.stage-step.done:not(:last-child)::after { background: var(--green); }
+.stage-dot {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--white); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--gray); z-index: 1; transition: all .3s;
+}
+.stage-step.done  .stage-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.stage-step.active .stage-dot { background: var(--red); border-color: var(--red); color: #fff; }
+.stage-label { font-size: 11px; color: var(--gray); text-align: center; max-width: 80px; line-height: 1.2; }
+.stage-step.active .stage-label { color: var(--red); font-weight: 700; }
+.stage-step.done   .stage-label { color: var(--green); }
+
+.turn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.back-to-select {
+  background: none; border: none; color: var(--gray); font-size: 12px; cursor: pointer;
+  padding: 3px 0; font-family: inherit; text-decoration: underline;
+}
+.back-to-select:hover { color: var(--dark); }
+.turn-badge {
+  font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 20px;
+  background: #f0f0f0; color: var(--gray);
+}
+.turn-badge.warn { background: #fff3e0; color: #e65100; animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+/* Chat messages */
+.chat-wrap {
+  flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.msg { display: flex; gap: 8px; max-width: 78%; animation: fadeUp .25s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.msg.sales    { align-self: flex-end; flex-direction: row-reverse; }
+.msg.customer { align-self: flex-start; }
+.msg.system   { align-self: center; max-width: 90%; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0; align-self: flex-end;
+}
+.avatar.c { background: #e4e6ea; }
+.avatar.s { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; }
+.bubble-wrap { display: flex; flex-direction: column; }
+.name { font-size: 11px; color: var(--gray); margin-bottom: 3px; }
+.msg.sales .name { text-align: right; }
+.bubble {
+  padding: 10px 14px; border-radius: 18px; font-size: 14px;
+  line-height: 1.65; word-break: break-word; white-space: pre-wrap;
+}
+.msg.customer .bubble { background: var(--white); border-radius: 4px 18px 18px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.msg.sales    .bubble { background: var(--red); color: #fff; border-radius: 18px 4px 18px 18px; }
+.msg.system   .bubble { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; font-size: 13px; color: #7a5c00; text-align: center; }
+.typing { display: flex; gap: 4px; padding: 12px 14px; background: var(--white);
+          border-radius: 4px 18px 18px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #bbb; animation: bounce 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-7px)} }
+
+/* Stage change toast */
+.stage-toast {
+  align-self: center; background: var(--green); color: #fff;
+  border-radius: 20px; padding: 6px 16px; font-size: 13px; font-weight: 700;
+  animation: fadeUp .3s ease;
+}
+
+/* Hint panel */
+.hint-panel {
+  background: #fffde7; border-top: 2px solid #ffd600;
+  padding: 12px 16px; flex-shrink: 0; display: none;
+}
+.hint-panel.show { display: block; }
+.hint-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.hint-label { font-size: 12px; font-weight: 700; color: #8a6d00; }
+.hint-close { background: none; border: none; cursor: pointer; font-size: 16px; color: #aaa; padding: 0 4px; }
+.hint-text { font-size: 13px; color: #5a4800; line-height: 1.6; white-space: pre-wrap; }
+
+/* Input area */
+.input-area {
+  background: var(--white); border-top: 1px solid var(--border);
+  padding: 10px 14px; display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
+}
+.hint-btn {
+  background: #fffde7; border: 1px solid #ffd600; color: #8a6d00;
+  border-radius: 10px; padding: 0 12px; height: 40px; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all .2s;
+}
+.hint-btn:hover { background: #ffd600; }
+.hint-btn:disabled { opacity: .4; cursor: not-allowed; }
+textarea.msg-input {
+  flex: 1; border: 1px solid var(--border); border-radius: 12px;
+  padding: 9px 13px; font-size: 14px; resize: none; outline: none;
+  font-family: inherit; max-height: 100px; min-height: 40px; line-height: 1.5;
+  transition: border-color .2s;
+}
+textarea.msg-input:focus { border-color: var(--red); }
+.send-btn {
+  background: var(--red); color: #fff; border: none; border-radius: 12px;
+  padding: 0 16px; height: 40px; font-size: 14px; font-weight: 700;
+  cursor: pointer; flex-shrink: 0; transition: background .2s;
+}
+.send-btn:hover { background: var(--red-dk); }
+.send-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+/* ════════════════════════════════
+   SCREEN 3 · Evaluation
+   ════════════════════════════════ */
+#s-eval { background: var(--bg); }
+#s-eval .body { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+.eval-hero { text-align: center; padding: 28px 0 24px; }
+.eval-icon  { font-size: 56px; margin-bottom: 10px; }
+.eval-title { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+.eval-title.success { color: var(--green); }
+.eval-title.fail    { color: var(--red); }
+.eval-sub { font-size: 14px; color: var(--gray); }
+.eval-card {
+  background: var(--white); border-radius: 14px; padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); margin-bottom: 16px;
+  white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #333;
+}
+.eval-loading { text-align: center; padding: 60px 20px; color: var(--gray); }
+.action-row { display: flex; gap: 10px; padding-bottom: 24px; }
+.btn-primary {
+  flex: 1; padding: 14px; background: var(--dark); color: #fff; border: none;
+  border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .2s;
+}
+.btn-primary:hover { background: #0d0d1a; }
+.btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+.btn-secondary {
+  flex: 1; padding: 14px; background: var(--white); color: var(--dark); border: 2px solid var(--border);
+  border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s;
+}
+.btn-secondary:hover { border-color: var(--dark); }
+.btn-success {
+  flex: 1; padding: 14px; background: var(--green); color: #fff; border: none;
+  border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .2s;
+}
+.btn-success:hover { background: #219150; }
+.btn-success:disabled { background: #a5d6a7; cursor: not-allowed; color: #fff; }
+.btn-exit {
+  flex: 1; padding: 14px; background: var(--white); color: var(--gray); border: 2px solid var(--border);
+  border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s;
+}
+.btn-exit:hover { border-color: var(--gray); color: var(--dark); }
+.action-row + .action-row { margin-top: 8px; }
+
+/* ════════════════════════════════
+   SCREEN 4 · Recommendations
+   ════════════════════════════════ */
+#s-recommend { background: var(--bg); }
+#s-recommend .body { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+.recommend-intro { margin-bottom: 16px; }
+.recommend-intro h3 { font-size: 18px; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
+.recommend-intro p  { font-size: 13px; color: var(--gray); }
+.recommend-card {
+  background: var(--white); border-radius: 14px; padding: 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); margin-bottom: 16px;
+  white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #333;
+}
+.training-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.training-opt-btn {
+  background: var(--white); border: 2px solid var(--border); border-radius: 14px;
+  padding: 18px 16px; cursor: pointer; text-align: center; transition: all .2s;
+  font-family: inherit;
+}
+.training-opt-btn:hover { border-color: var(--red); background: #fff5f7; }
+.training-opt-btn .opt-icon  { font-size: 28px; margin-bottom: 8px; }
+.training-opt-btn .opt-label { font-size: 14px; font-weight: 700; color: var(--dark); }
+.training-opt-btn .opt-desc  { font-size: 12px; color: var(--gray); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     SCREEN 1: Script Selection
+     ══════════════════════════════ -->
+<div id="s-select" class="screen active">
+  <div class="top-bar">
+    <span class="logo">KT</span>
+    <span class="title">훈련 Agent</span>
+    <a href="index.html" class="home-btn">← 메인</a>
+  </div>
+  <div class="body">
+    <div class="select-intro">
+      <h2>훈련 스크립트 선택</h2>
+      <p>저장된 영업 스크립트를 선택하면 AI 고객과 훈련을 시작합니다.</p>
+    </div>
+    <div id="resumeBanner" style="display:none">
+      <!-- 동적으로 채워짐 -->
+    </div>
+    <div id="scriptList">
+      <div class="loading-spinner"><div class="spinner"></div>스크립트 목록을 불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 2: Chat
+     ══════════════════════════════ -->
+<div id="s-chat" class="screen">
+  <!-- Stage bar -->
+  <div class="stage-bar">
+    <div class="stage-steps" id="stageSteps"></div>
+    <div class="turn-row">
+      <button class="back-to-select" onclick="goSelectScreen()">← 스크립트 선택</button>
+      <div class="turn-badge" id="turnBadge">0 / ?턴</div>
+    </div>
+  </div>
+  <!-- Messages -->
+  <div class="chat-wrap" id="chatWrap"></div>
+  <!-- Hint panel -->
+  <div class="hint-panel" id="hintPanel">
+    <div class="hint-header">
+      <span class="hint-label">💡 코치 힌트</span>
+      <button class="hint-close" onclick="closeHint()">✕</button>
+    </div>
+    <div class="hint-text" id="hintText"></div>
+  </div>
+  <!-- Input -->
+  <div class="input-area">
+    <button class="hint-btn" id="hintBtn" onclick="requestHint()">💡 힌트</button>
+    <textarea class="msg-input" id="msgInput" rows="1" placeholder="영업사원으로서 고객에게 말을 건네세요..."
+      onkeydown="onKey(event)" oninput="resizeInput(this)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">전송</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 3: Evaluation
+     ══════════════════════════════ -->
+<div id="s-eval" class="screen">
+  <div class="top-bar">
+    <span class="logo">KT</span>
+    <span class="title">훈련 결과</span>
+    <a href="index.html" class="home-btn">← 메인</a>
+  </div>
+  <div class="body">
+    <div class="eval-hero">
+      <div class="eval-icon" id="evalIcon">⏳</div>
+      <div class="eval-title" id="evalTitle">평가 중...</div>
+      <div class="eval-sub" id="evalSub"></div>
+    </div>
+    <div id="evalContent">
+      <div class="eval-loading"><div class="spinner"></div>AI가 대화를 분석하고 있습니다...</div>
+    </div>
+    <div id="evalActions" style="display:none">
+      <div class="action-row">
+        <button class="btn-success" id="saveBtn" onclick="saveSessionManual()">💾 저장</button>
+        <button class="btn-exit"    onclick="location.href='index.html'">나가기</button>
+      </div>
+      <div class="action-row">
+        <button class="btn-secondary" onclick="restartSameScript()">🔄 다시 도전</button>
+        <button class="btn-primary"   onclick="showRecommendScreen()">맞춤 훈련 추천 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 4: Recommendations
+     ══════════════════════════════ -->
+<div id="s-recommend" class="screen">
+  <div class="top-bar">
+    <span class="logo">KT</span>
+    <span class="title">맞춤 훈련 추천</span>
+    <a href="index.html" class="home-btn">← 메인</a>
+  </div>
+  <div class="body">
+    <div class="recommend-intro">
+      <h3>🎯 약점 기반 훈련 추천</h3>
+      <p>평가 결과를 분석하여 맞춤 훈련을 추천합니다.</p>
+    </div>
+    <div id="recommendContent">
+      <div class="eval-loading"><div class="spinner"></div>추천 훈련을 생성 중입니다...</div>
+    </div>
+    <div class="training-options" id="trainingOptions" style="display:none">
+      <button class="training-opt-btn" onclick="restartSameScript()">
+        <div class="opt-icon">🔄</div>
+        <div class="opt-label">같은 스크립트</div>
+        <div class="opt-desc">동일 조건으로 재도전</div>
+      </button>
+      <button class="training-opt-btn" onclick="goSelectScreen()">
+        <div class="opt-icon">📋</div>
+        <div class="opt-label">다른 스크립트</div>
+        <div class="opt-desc">새 스크립트 선택</div>
+      </button>
+      <button class="training-opt-btn" onclick="location.href='script-analyzer.html'">
+        <div class="opt-icon">🔍</div>
+        <div class="opt-label">스크립트 분석</div>
+        <div class="opt-desc">새 스크립트 등록</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://your-api-url.execute-api.ap-northeast-2.amazonaws.com/';
+const API_KEY = 'SET_API_KEY_HERE';
+
+const SESSION_KEY = 'kt_training_v1';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let script           = null;
+let scriptKey        = '';
+let messages         = [];
+let turnCount        = 0;
+let maxTurns         = 15;
+let currentStageIdx  = 0;
+let sessionSuccess   = false;
+let evaluationResult = '';
+let isBusy           = false;
+let lastMasterReason = '';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function callAPI(payload) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (API_KEY && API_KEY !== 'SET_API_KEY_HERE') headers['X-Training-Key'] = API_KEY;
+  const res = await fetch(API, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || `오류 ${res.status}`);
+  return data;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── sessionStorage ────────────────────────────────────────────────────────────
+function saveToSession() {
+  if (!script) return;
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      script, scriptKey, messages, turnCount, maxTurns,
+      currentStageIdx, lastMasterReason,
+      chatHtml: document.getElementById('chatWrap').innerHTML,
+    }));
+  } catch (_) {}
+}
+
+function getSavedSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d.script || !Array.isArray(d.messages)) return null;
+    return d;
+  } catch (_) { return null; }
+}
+
+function restoreFromSession(saved) {
+  script           = saved.script;
+  scriptKey        = saved.scriptKey || '';
+  messages         = saved.messages;
+  turnCount        = saved.turnCount  || 0;
+  maxTurns         = saved.maxTurns   || 15;
+  currentStageIdx  = saved.currentStageIdx || 0;
+  lastMasterReason = saved.lastMasterReason || '';
+  document.getElementById('chatWrap').innerHTML = saved.chatHtml || '';
+  document.getElementById('chatWrap').scrollTop = 9999;
+  document.getElementById('hintPanel').classList.remove('show');
+  updateStageBar();
+  updateTurnBadge();
+  setInputEnabled(true);
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+// ── Screen 1: Script Selection ────────────────────────────────────────────────
+async function loadScripts() {
+  const list = document.getElementById('scriptList');
+  const banner = document.getElementById('resumeBanner');
+
+  // 이전 세션 복원 배너
+  const saved = getSavedSession();
+  if (saved) {
+    const stageTxt = `${saved.currentStageIdx + 1}/${(saved.script.stages || []).length}단계`;
+    banner.style.display = 'block';
+    banner.innerHTML = `<div class="resume-banner">
+      <div style="font-size:24px">▶️</div>
+      <div class="resume-info">
+        <strong>${esc(saved.script.script_name || '이전 훈련')}</strong>
+        ${turnCount}턴 진행 중 · ${stageTxt}
+      </div>
+      <button class="resume-btn" onclick="resumeSession()">이어하기</button>
+      <button class="dismiss-btn" onclick="dismissResume()" title="닫기">✕</button>
+    </div>`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  try {
+    const data = await callAPI({ action: 'list_scripts' });
+    const scripts = data.scripts || [];
+    if (scripts.length === 0) {
+      list.innerHTML = `<div class="no-scripts">
+        <div class="icon">📭</div>
+        <p>저장된 스크립트가 없습니다.</p>
+        <p style="margin-top:8px"><a href="script-analyzer.html">스크립트 분석기에서 등록</a>하세요.</p>
+      </div>`;
+      return;
+    }
+    list.innerHTML = scripts.map(s => `
+      <div class="script-card" onclick="startTraining('${esc(s.key)}')">
+        <div class="script-icon">📄</div>
+        <div class="script-info">
+          <div class="script-name">${esc(s.script_name)}</div>
+          <div class="script-meta">${esc(s.script_title)} · ${fmtDate(s.created_at)}</div>
+        </div>
+        <div class="script-stages">${s.stage_count}단계</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="no-scripts"><div class="icon">⚠️</div><p>불러오기 실패: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function resumeSession() {
+  const saved = getSavedSession();
+  if (!saved) return;
+  restoreFromSession(saved);
+  showScreen('s-chat');
+  document.getElementById('msgInput').focus();
+}
+
+function dismissResume() {
+  clearSession();
+  document.getElementById('resumeBanner').style.display = 'none';
+}
+
+async function startTraining(key) {
+  const list = document.getElementById('scriptList');
+  list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div>스크립트를 로드하는 중...</div>';
+  try {
+    const loaded = await callAPI({ action: 'load_script', key });
+    script    = loaded;
+    scriptKey = key;
+    clearSession();
+    initChat();
+    showScreen('s-chat');
+  } catch (e) {
+    list.innerHTML = `<div class="no-scripts"><div class="icon">⚠️</div><p>로드 실패: ${esc(e.message)}</p></div>`;
+    loadScripts();
+  }
+}
+
+// ── Screen 2: Chat ────────────────────────────────────────────────────────────
+function calcMaxTurns(stages) {
+  const total = (stages || []).reduce((sum, s) => sum + (s.key_actions || []).length, 0);
+  return Math.max(10, total * 2);
+}
+
+function initChat() {
+  messages         = [];
+  turnCount        = 0;
+  maxTurns         = calcMaxTurns(script.stages);
+  currentStageIdx  = 0;
+  sessionSuccess   = false;
+  evaluationResult = '';
+  lastMasterReason = '';
+  document.getElementById('chatWrap').innerHTML   = '';
+  document.getElementById('hintPanel').classList.remove('show');
+  document.getElementById('hintText').textContent = '';
+  document.getElementById('msgInput').value       = '';
+  updateStageBar();
+  updateTurnBadge();
+  setInputEnabled(true);
+  addMsg('system', `📍 ${script.script_title || '영업 훈련'} 시작! 고객이 대리점에 들어왔습니다. 먼저 인사를 건네세요.`);
+  saveToSession();
+}
+
+function updateStageBar() {
+  const stages = script.stages || [];
+  const steps  = document.getElementById('stageSteps');
+  steps.innerHTML = stages.map((s, i) => {
+    let cls = '';
+    if (i < currentStageIdx)  cls = 'done';
+    if (i === currentStageIdx) cls = 'active';
+    const tick = i < currentStageIdx ? '✓' : (i + 1);
+    return `<div class="stage-step ${cls}">
+      <div class="stage-dot">${tick}</div>
+      <div class="stage-label">${esc(s.name)}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateTurnBadge() {
+  const el = document.getElementById('turnBadge');
+  el.textContent = `${turnCount} / ${maxTurns}턴`;
+  el.className = 'turn-badge' + (turnCount >= maxTurns - 3 ? ' warn' : '');
+}
+
+function setInputEnabled(enabled) {
+  document.getElementById('msgInput').disabled = !enabled;
+  document.getElementById('sendBtn').disabled  = !enabled;
+  document.getElementById('hintBtn').disabled  = !enabled;
+}
+
+function addMsg(role, text, name) {
+  const wrap = document.getElementById('chatWrap');
+  if (role === 'system') {
+    const div = document.createElement('div');
+    div.className = 'msg system';
+    div.innerHTML = `<div class="bubble-wrap"><div class="bubble">${esc(text)}</div></div>`;
+    wrap.appendChild(div);
+  } else {
+    const isCustomer = role === 'customer';
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `
+      <div class="avatar ${isCustomer ? 'c' : 's'}">${isCustomer ? '👤' : 'KT'}</div>
+      <div class="bubble-wrap">
+        <div class="name">${esc(name || (isCustomer ? '고객' : '나 (영업사원)'))}</div>
+        <div class="bubble">${esc(text)}</div>
+      </div>`;
+    wrap.appendChild(div);
+  }
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function addStageToast(stageName) {
+  const wrap = document.getElementById('chatWrap');
+  const div  = document.createElement('div');
+  div.className = 'stage-toast';
+  div.textContent = `✅ 다음 단계: ${stageName}`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showTyping() {
+  const wrap = document.getElementById('chatWrap');
+  const row  = document.createElement('div');
+  row.className = 'msg customer'; row.id = 'typing';
+  row.innerHTML = `<div class="avatar c">👤</div>
+    <div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+  return row;
+}
+
+function resizeInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+async function sendMessage() {
+  if (isBusy) return;
+  const inp  = document.getElementById('msgInput');
+  const text = inp.value.trim();
+  if (!text) return;
+
+  addMsg('sales', text);
+  messages.push({ role: 'user', content: text });
+  inp.value = ''; inp.style.height = 'auto';
+  closeHint();
+  isBusy = true;
+  setInputEnabled(false);
+  const typing = showTyping();
+
+  try {
+    const data = await callAPI({
+      action:            'chat',
+      messages,
+      turn_count:        turnCount,
+      current_stage_idx: currentStageIdx,
+      stages:            script.stages,
+      persona_prompt:    script.persona_prompt,
+    });
+    typing.remove();
+    turnCount        = data.turn_count;
+    if (data.max_turns) maxTurns = data.max_turns;
+    currentStageIdx  = data.current_stage_idx;
+    lastMasterReason = data.master_reason || '';
+    updateTurnBadge();
+    updateStageBar();
+
+    if (data.stage_changed && data.stage_name) addStageToast(data.stage_name);
+
+    addMsg('customer', data.response);
+    messages.push({ role: 'assistant', content: data.response });
+
+    saveToSession();
+
+    if (data.is_success || data.is_failed) {
+      sessionSuccess = data.is_success;
+      setTimeout(() => endSession(data.is_success), 800);
+      return;
+    }
+  } catch (e) {
+    typing.remove();
+    addMsg('system', `연결 오류: ${e.message}`);
+  }
+  isBusy = false;
+  setInputEnabled(true);
+  document.getElementById('msgInput').focus();
+}
+
+// ── Hint ──────────────────────────────────────────────────────────────────────
+async function requestHint() {
+  if (isBusy) return;
+  isBusy = true;
+  document.getElementById('hintBtn').disabled = true;
+  const panel = document.getElementById('hintPanel');
+  const textEl = document.getElementById('hintText');
+  panel.classList.add('show');
+  textEl.textContent = '힌트를 생성하는 중...';
+
+  try {
+    const data = await callAPI({
+      action:            'hint',
+      messages,
+      current_stage_idx: currentStageIdx,
+      stages:            script.stages,
+      hint_prompt:       script.hint_prompt,
+      last_master_reason: lastMasterReason,
+    });
+    textEl.textContent = data.hint;
+  } catch (e) {
+    textEl.textContent = `힌트 오류: ${e.message}`;
+  }
+  isBusy = false;
+  document.getElementById('hintBtn').disabled = false;
+}
+
+function closeHint() {
+  document.getElementById('hintPanel').classList.remove('show');
+}
+
+// ── Session End → Evaluate ────────────────────────────────────────────────────
+async function endSession(isSuccess) {
+  clearSession();
+  setInputEnabled(false);
+  showScreen('s-eval');
+  document.getElementById('evalIcon').textContent  = isSuccess ? '🎉' : '😞';
+  document.getElementById('evalTitle').textContent = isSuccess ? '훈련 성공!' : '훈련 종료';
+  document.getElementById('evalTitle').className   = `eval-title ${isSuccess ? 'success' : 'fail'}`;
+  document.getElementById('evalSub').textContent   = isSuccess
+    ? '모든 단계를 성공적으로 완료했습니다!'
+    : `${currentStageIdx + 1}/${(script.stages||[]).length} 단계에서 종료되었습니다.`;
+  document.getElementById('evalContent').innerHTML =
+    '<div class="eval-loading"><div class="spinner"></div>AI가 대화를 분석하고 있습니다...</div>';
+  document.getElementById('evalActions').style.display = 'none';
+
+  try {
+    const data = await callAPI({
+      action:            'evaluate',
+      messages,
+      stages:            script.stages,
+      evaluation_prompt: script.evaluation_prompt,
+      final_stage_idx:   currentStageIdx,
+      is_success:        isSuccess,
+    });
+    evaluationResult = data.evaluation;
+    document.getElementById('evalContent').innerHTML =
+      `<div class="eval-card">${esc(evaluationResult)}</div>`;
+    document.getElementById('evalActions').style.display = 'block';
+    document.getElementById('saveBtn').disabled    = false;
+    document.getElementById('saveBtn').textContent = '💾 저장';
+  } catch (e) {
+    document.getElementById('evalContent').innerHTML =
+      `<div class="eval-card">평가 오류: ${esc(e.message)}</div>`;
+    document.getElementById('evalActions').style.display = 'flex';
+  }
+}
+
+// ── Manual Save ──────────────────────────────────────────────────────────────
+async function saveSessionManual() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled    = true;
+  btn.textContent = '저장 중...';
+  try {
+    await callAPI({
+      action:          'save_session',
+      script_id:       script.id          || '',
+      script_name:     script.script_name || '',
+      messages,
+      stages:          script.stages,
+      is_success:      sessionSuccess,
+      final_stage_idx: currentStageIdx,
+      turn_count:      turnCount,
+      max_turns:       maxTurns,
+      evaluation:      evaluationResult,
+    });
+    btn.textContent = '✓ 저장됨';
+  } catch (e) {
+    btn.disabled    = false;
+    btn.textContent = '💾 저장';
+    alert(`저장 오류: ${e.message}`);
+  }
+}
+
+// ── Recommendations ───────────────────────────────────────────────────────────
+async function showRecommendScreen() {
+  showScreen('s-recommend');
+  document.getElementById('recommendContent').innerHTML =
+    '<div class="eval-loading"><div class="spinner"></div>추천 훈련을 생성 중입니다...</div>';
+  document.getElementById('trainingOptions').style.display = 'none';
+
+  try {
+    const data = await callAPI({
+      action:                'recommend',
+      evaluation_result:     evaluationResult,
+      recommendation_prompt: script.recommendation_prompt,
+    });
+    document.getElementById('recommendContent').innerHTML =
+      `<div class="recommend-card">${esc(data.recommendation)}</div>`;
+    document.getElementById('trainingOptions').style.display = 'grid';
+  } catch (e) {
+    document.getElementById('recommendContent').innerHTML =
+      `<div class="recommend-card">추천 생성 오류: ${esc(e.message)}</div>`;
+    document.getElementById('trainingOptions').style.display = 'grid';
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function restartSameScript() {
+  clearSession();
+  initChat();
+  showScreen('s-chat');
+}
+
+function goSelectScreen() {
+  clearSession();
+  showScreen('s-select');
+  loadScripts();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  const saved = getSavedSession();
+  if (saved && saved.messages.length > 0) {
+    // 이전 세션이 있으면 선택 화면에서 배너로 보여줌
+    loadScripts();
+  } else {
+    loadScripts();
+  }
+})();
+</script>
+</body>
+</html>

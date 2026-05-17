@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>훈련 기록 - KT 영업 교육</title>
+<style>
+:root {
+  --red: #E31837; --red-dk: #b8122c;
+  --dark: #1a1a2e; --bg: #f0f2f5;
+  --white: #fff; --border: #e0e0e0;
+  --gray: #888; --green: #27ae60;
+  --green-bg: #e8f5e9; --red-bg: #ffeef1;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  background: var(--bg); min-height: 100vh; display: flex; flex-direction: column;
+}
+
+/* ── Header ── */
+.top-bar {
+  background: var(--dark); color: #fff; padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.top-bar .logo  { font-size: 20px; font-weight: 900; color: var(--red); }
+.top-bar .title { font-size: 15px; font-weight: 600; }
+.top-bar .home-btn {
+  margin-left: auto; color: #aaa; text-decoration: none; font-size: 13px;
+  padding: 5px 10px; border: 1px solid #555; border-radius: 7px; transition: all .2s;
+}
+.top-bar .home-btn:hover { color: #fff; border-color: #aaa; }
+
+/* ── Content ── */
+.container { max-width: 800px; margin: 0 auto; padding: 28px 20px 60px; width: 100%; }
+
+/* ── Stats ── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--white); border-radius: 14px; padding: 18px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); text-align: center;
+}
+.stat-value { font-size: 28px; font-weight: 900; color: var(--dark); line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: var(--gray); }
+.stat-card.success .stat-value { color: var(--green); }
+.stat-card.turns  .stat-value  { color: var(--red); }
+
+/* ── Filter ── */
+.filter-row {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.filter-btn {
+  padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--white); font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--gray); transition: all .2s; font-family: inherit;
+}
+.filter-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+.filter-btn:hover:not(.active) { border-color: var(--dark); color: var(--dark); }
+
+/* ── Session cards ── */
+.session-card {
+  background: var(--white); border-radius: 14px; margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+  border: 1.5px solid transparent; transition: border-color .2s;
+}
+.session-card.open { border-color: var(--red); }
+
+.session-header {
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px; cursor: pointer;
+}
+.session-header:hover { background: #fafafa; }
+
+.result-badge {
+  width: 36px; height: 36px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.result-badge.success { background: var(--green-bg); }
+.result-badge.fail    { background: var(--red-bg); }
+
+.session-meta { flex: 1; min-width: 0; }
+.session-name { font-size: 15px; font-weight: 700; color: var(--dark);
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-date { font-size: 12px; color: var(--gray); margin-top: 2px; }
+
+.session-stats { display: flex; gap: 10px; flex-shrink: 0; align-items: center; }
+.stat-pill {
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+  background: #f0f0f0; color: #555; white-space: nowrap;
+}
+.stat-pill.success { background: var(--green-bg); color: #2e7d32; }
+.stat-pill.fail    { background: var(--red-bg); color: #b71c1c; }
+
+.chevron { color: var(--gray); font-size: 14px; transition: transform .2s; flex-shrink: 0; }
+.session-card.open .chevron { transform: rotate(180deg); }
+
+/* ── Expanded detail ── */
+.session-detail {
+  display: none; border-top: 1px solid var(--border); padding: 18px;
+}
+.session-card.open .session-detail { display: block; }
+
+.eval-section { margin-bottom: 14px; }
+.eval-section-title {
+  font-size: 12px; font-weight: 700; color: var(--gray);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px;
+}
+.eval-text {
+  font-size: 13px; line-height: 1.75; color: #333;
+  background: #f8f9fa; border-radius: 10px; padding: 14px 16px;
+  white-space: pre-wrap; max-height: 300px; overflow-y: auto;
+}
+.detail-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-dialog {
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.btn-outline {
+  background: var(--white); border: 1.5px solid var(--border); color: var(--dark);
+}
+.btn-outline:hover { border-color: var(--dark); }
+.btn-filled {
+  background: var(--dark); border: none; color: #fff;
+}
+.btn-filled:hover { background: #0d0d1a; }
+.btn-filled:disabled { background: #ccc; cursor: not-allowed; }
+
+/* ── Empty / Loading ── */
+.empty-state { text-align: center; padding: 80px 20px; color: var(--gray); }
+.empty-state .icon { font-size: 56px; margin-bottom: 14px; }
+.empty-state p { font-size: 15px; }
+.empty-state a { color: var(--red); font-weight: 700; text-decoration: none; }
+.spinner-wrap { text-align: center; padding: 80px; color: var(--gray); }
+.spinner {
+  width: 36px; height: 36px; border: 3px solid var(--border);
+  border-top-color: var(--red); border-radius: 50%;
+  animation: spin .7s linear infinite; margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Conversation modal ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 100; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 20px; width: 100%; max-width: 600px;
+  max-height: 85vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+.modal-header {
+  padding: 18px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.modal-title { font-size: 16px; font-weight: 800; color: var(--dark); }
+.modal-close {
+  background: none; border: none; font-size: 20px; cursor: pointer;
+  color: var(--gray); padding: 0 4px;
+}
+.modal-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.conv-msg { display: flex; gap: 8px; max-width: 82%; }
+.conv-msg.sales    { align-self: flex-end; flex-direction: row-reverse; }
+.conv-msg.customer { align-self: flex-start; }
+.conv-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; align-self: flex-end;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.conv-avatar.c { background: #e4e6ea; }
+.conv-avatar.s { background: var(--red); color: #fff; font-size: 9px; font-weight: 700; }
+.conv-bubble-wrap { display: flex; flex-direction: column; }
+.conv-name { font-size: 10px; color: var(--gray); margin-bottom: 2px; }
+.conv-msg.sales .conv-name { text-align: right; }
+.conv-bubble {
+  padding: 9px 13px; border-radius: 16px; font-size: 13px; line-height: 1.6;
+  word-break: break-word; white-space: pre-wrap;
+}
+.conv-msg.customer .conv-bubble {
+  background: #f0f0f0; border-radius: 4px 16px 16px 16px;
+}
+.conv-msg.sales .conv-bubble {
+  background: var(--red); color: #fff; border-radius: 16px 4px 16px 16px;
+}
+.modal-loading { text-align: center; padding: 60px; color: var(--gray); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="logo">KT</span>
+  <span class="title">훈련 기록</span>
+  <a href="index.html" class="home-btn">← 메인</a>
+</div>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div class="stat-card">
+      <div class="stat-value" id="statTotal">-</div>
+      <div class="stat-label">총 훈련 횟수</div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-value" id="statRate">-</div>
+      <div class="stat-label">성공률</div>
+    </div>
+    <div class="stat-card turns">
+      <div class="stat-value" id="statAvgTurns">-</div>
+      <div class="stat-label">평균 턴 수</div>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-row" id="filterRow" style="display:none">
+    <button class="filter-btn active" onclick="setFilter('all')">전체</button>
+    <button class="filter-btn" onclick="setFilter('success')">✅ 성공</button>
+    <button class="filter-btn" onclick="setFilter('fail')">❌ 미완료</button>
+  </div>
+
+  <!-- Session list -->
+  <div id="sessionList">
+    <div class="spinner-wrap"><div class="spinner"></div>기록을 불러오는 중...</div>
+  </div>
+
+</div>
+
+<!-- Conversation Modal -->
+<div class="modal-overlay" id="convModal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">대화 내용</div>
+      <button class="modal-close" onclick="closeModalBtn()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="modal-loading"><div class="spinner"></div>불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://your-api-url.execute-api.ap-northeast-2.amazonaws.com/';
+const API_KEY = 'SET_API_KEY_HERE';
+
+let allSessions  = [];
+let currentFilter = 'all';
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function callAPI(payload) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (API_KEY && API_KEY !== 'SET_API_KEY_HERE') headers['X-Training-Key'] = API_KEY;
+  const res = await fetch(API, {
+    method: 'POST', headers, body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `오류 ${res.status}`);
+  return data;
+}
+
+// ── Load sessions ─────────────────────────────────────────────────────────────
+async function loadSessions() {
+  try {
+    const data = await callAPI({ action: 'list_sessions' });
+    allSessions = data.sessions || [];
+    renderStats();
+    renderList();
+    document.getElementById('statsRow').style.display  = allSessions.length ? 'grid'  : 'none';
+    document.getElementById('filterRow').style.display = allSessions.length ? 'flex'  : 'none';
+  } catch (e) {
+    document.getElementById('sessionList').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>불러오기 실패: ${esc(e.message)}</p></div>`;
+  }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const total   = allSessions.length;
+  const success = allSessions.filter(s => s.is_success).length;
+  const rate    = total ? Math.round(success / total * 100) : 0;
+  const avgTurns = total
+    ? Math.round(allSessions.reduce((sum, s) => sum + s.turn_count, 0) / total)
+    : 0;
+  document.getElementById('statTotal').textContent    = total;
+  document.getElementById('statRate').textContent     = `${rate}%`;
+  document.getElementById('statAvgTurns').textContent = avgTurns;
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderList();
+}
+
+function filteredSessions() {
+  if (currentFilter === 'success') return allSessions.filter(s => s.is_success);
+  if (currentFilter === 'fail')    return allSessions.filter(s => !s.is_success);
+  return allSessions;
+}
+
+// ── Render list ───────────────────────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('sessionList');
+  const sessions = filteredSessions();
+
+  if (sessions.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="icon">${currentFilter === 'all' ? '📭' : '🔍'}</div>
+      <p>${currentFilter === 'all'
+        ? '훈련 기록이 없습니다.<br><br><a href="training.html">훈련을 시작</a>해보세요.'
+        : '해당 조건의 기록이 없습니다.'
+      }</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = sessions.map((s, idx) => {
+    const isSuccess = s.is_success;
+    const stagesTxt = s.total_stages
+      ? `${Math.min(s.final_stage_idx + (isSuccess ? s.total_stages : 0), s.total_stages)}/${s.total_stages}단계`
+      : '';
+    return `
+    <div class="session-card" id="card-${idx}">
+      <div class="session-header" onclick="toggleCard(${idx})">
+        <div class="result-badge ${isSuccess ? 'success' : 'fail'}">${isSuccess ? '✅' : '❌'}</div>
+        <div class="session-meta">
+          <div class="session-name">${esc(s.script_name || '알 수 없는 스크립트')}</div>
+          <div class="session-date">${fmtDatetime(s.created_at)}</div>
+        </div>
+        <div class="session-stats">
+          <span class="stat-pill ${isSuccess ? 'success' : 'fail'}">${isSuccess ? '성공' : '미완료'}</span>
+          ${stagesTxt ? `<span class="stat-pill">${stagesTxt}</span>` : ''}
+          <span class="stat-pill">${s.turn_count}턴</span>
+        </div>
+        <div class="chevron">▼</div>
+      </div>
+      <div class="session-detail">
+        ${s.evaluation
+          ? `<div class="eval-section">
+               <div class="eval-section-title">평가 결과</div>
+               <div class="eval-text">${esc(s.evaluation)}</div>
+             </div>`
+          : `<div class="eval-section"><div class="eval-text" style="color:var(--gray)">평가 내용이 없습니다.</div></div>`
+        }
+        <div class="detail-actions">
+          <button class="btn-dialog btn-filled" onclick="openConvModal('${esc(s.key)}', '${esc(s.script_name)}')">
+            대화 보기
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Toggle card ───────────────────────────────────────────────────────────────
+function toggleCard(idx) {
+  document.getElementById(`card-${idx}`).classList.toggle('open');
+}
+
+// ── Conversation Modal ────────────────────────────────────────────────────────
+async function openConvModal(key, scriptName) {
+  const modal = document.getElementById('convModal');
+  const body  = document.getElementById('modalBody');
+  document.getElementById('modalTitle').textContent = esc(scriptName) + ' 대화';
+  body.innerHTML = '<div class="modal-loading"><div class="spinner"></div>불러오는 중...</div>';
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const data = await callAPI({ action: 'load_session', key });
+    const msgs = data.messages || [];
+    if (!msgs.length) {
+      body.innerHTML = '<div class="modal-loading" style="padding:40px">대화 내용이 없습니다.</div>';
+      return;
+    }
+    body.innerHTML = msgs.map(m => {
+      const isSales = m.role === 'user';
+      return `<div class="conv-msg ${isSales ? 'sales' : 'customer'}">
+        <div class="conv-avatar ${isSales ? 's' : 'c'}">${isSales ? 'KT' : '👤'}</div>
+        <div class="conv-bubble-wrap">
+          <div class="conv-name">${isSales ? '나 (영업사원)' : '고객'}</div>
+          <div class="conv-bubble">${esc(m.content)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    body.scrollTop = 0;
+  } catch (e) {
+    body.innerHTML = `<div class="modal-loading">오류: ${esc(e.message)}</div>`;
+  }
+}
+
+function closeModalBtn() {
+  document.getElementById('convModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('convModal')) closeModalBtn();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function fmtDatetime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadSessions();
+</script>
+</body>
+</html>
