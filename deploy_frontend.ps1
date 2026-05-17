@@ -3,7 +3,7 @@
 
 param(
     [string]$Region  = "ap-northeast-2",
-    [string]$Bucket  = "kt-sales-training-web-zyroij",
+    [string]$Bucket  = "kt-sales-training-web-<your-suffix>",   # 실제 버킷명으로 교체
     [string]$ApiName = "kt-sales-training-api",
     [string]$LambdaName = "kt-sales-training-chatbot"
 )

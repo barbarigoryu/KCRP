@@ -15,7 +15,7 @@ import sys
 
 REGION      = 'ap-northeast-2'
 LAMBDA_NAME = 'kt-sales-training-chatbot'
-WEB_BUCKET  = 'kt-sales-training-web-zyroij'
+WEB_BUCKET  = 'kt-sales-training-web-<your-suffix>'   # 실제 버킷명으로 교체
 API_NAME    = 'kt-sales-training-api'
 
 s3     = boto3.client('s3',            region_name=REGION)
