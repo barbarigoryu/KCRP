@@ -46,7 +46,7 @@ region       = '$Region'
 s3 = boto3.client('s3', region_name=region)
 
 # Files that need API URL + API Key injected
-for filename in ['training.html', 'script-analyzer.html', 'training-results.html']:
+for filename in ['training.html', 'script-analyzer.html', 'training-results.html', 'script-configs.html']:
     with open(r'$PSScriptRoot\frontend\\' + filename, encoding='utf-8') as f:
         html = f.read()
     html = re.sub(r"const API\b\s*=\s*'.+?';",     f"const API = '{api_url}';",         html)

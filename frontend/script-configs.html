@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스크립트 설정 관리 - KT 영업 교육</title>
+<style>
+:root {
+  --red: #E31837; --red-dk: #b8122c;
+  --dark: #1a1a2e; --bg: #f0f2f5;
+  --white: #fff; --border: #e0e0e0;
+  --gray: #888; --muted: #f5f5f5;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  background: var(--bg); min-height: 100vh; display: flex; flex-direction: column;
+}
+
+/* ── Header ── */
+.top-bar {
+  background: var(--dark); color: #fff; padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.top-bar .logo  { font-size: 20px; font-weight: 900; color: var(--red); }
+.top-bar .title { font-size: 15px; font-weight: 600; }
+.top-bar .home-btn {
+  margin-left: auto; color: #aaa; text-decoration: none; font-size: 13px;
+  padding: 5px 10px; border: 1px solid #555; border-radius: 7px; transition: all .2s;
+}
+.top-bar .home-btn:hover { color: #fff; border-color: #aaa; }
+
+/* ── Container ── */
+.container { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; width: 100%; }
+
+/* ── Page header row ── */
+.page-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.page-header h2 { font-size: 20px; font-weight: 800; color: var(--dark); flex: 1; }
+.count-badge {
+  font-size: 13px; font-weight: 700; background: var(--dark); color: #fff;
+  padding: 3px 10px; border-radius: 20px;
+}
+.refresh-btn {
+  padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--white); font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--dark); transition: all .2s; font-family: inherit;
+}
+.refresh-btn:hover { border-color: var(--dark); }
+
+/* ── Spinner ── */
+.spinner-wrap {
+  text-align: center; padding: 60px 20px;
+}
+.spinner {
+  width: 44px; height: 44px;
+  border: 4px solid var(--border); border-top-color: var(--red);
+  border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-wrap p { font-size: 14px; color: var(--gray); }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center; padding: 80px 20px; color: var(--gray);
+}
+.empty-state .icon { font-size: 52px; margin-bottom: 14px; }
+.empty-state p { font-size: 15px; line-height: 1.7; }
+
+/* ── Config card (collapsed) ── */
+.config-card {
+  background: var(--white); border-radius: 14px; margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+  border: 1.5px solid transparent; transition: border-color .2s;
+}
+.config-card.open { border-color: var(--red); }
+
+.config-header {
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px; cursor: pointer;
+  user-select: none;
+}
+.config-header:hover { background: #fafafa; }
+
+.config-icon {
+  width: 42px; height: 42px; border-radius: 10px; background: #fff5f7;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0; transition: background .2s;
+}
+.config-card.open .config-icon { background: var(--red); }
+
+.config-info { flex: 1; min-width: 0; }
+.config-name { font-size: 16px; font-weight: 700; color: var(--dark); margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.config-subtitle { font-size: 13px; color: var(--gray); margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.config-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meta-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  background: #f0f2f5; color: #555;
+}
+.meta-badge.stage { background: #fff5f7; color: var(--red); }
+.meta-date { font-size: 11px; color: var(--gray); }
+
+.card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.btn-delete {
+  padding: 6px 12px; border-radius: 7px; border: 1px solid #f5c6cb;
+  background: #fff5f7; color: #c0122c; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.btn-delete:hover { background: #f8d7da; border-color: var(--red); }
+.toggle-icon {
+  font-size: 14px; color: var(--gray); transition: transform .25s; flex-shrink: 0;
+}
+.config-card.open .toggle-icon { transform: rotate(180deg); }
+
+/* ── Config body (expanded) ── */
+.config-body { display: none; border-top: 1px solid var(--border); padding: 24px 22px; }
+.config-card.open .config-body { display: block; }
+
+.detail-spinner { text-align: center; padding: 30px; }
+.detail-spinner .spinner { width: 32px; height: 32px; border-width: 3px; }
+
+/* ── Edit form ── */
+.form-section { margin-bottom: 24px; }
+.form-section-title {
+  font-size: 14px; font-weight: 700; color: var(--dark);
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.section-badge {
+  font-size: 10px; background: var(--red); color: #fff;
+  padding: 2px 7px; border-radius: 20px; font-weight: 700;
+}
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.field-row.single { grid-template-columns: 1fr; }
+
+.field-group { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--gray); }
+.field-input {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: inherit; color: var(--dark); background: var(--muted);
+  transition: border-color .2s;
+}
+.field-input:focus { outline: none; border-color: var(--red); background: #fff; }
+.field-textarea {
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; font-family: inherit; color: var(--dark); background: var(--muted);
+  resize: vertical; line-height: 1.6; transition: border-color .2s;
+}
+.field-textarea:focus { outline: none; border-color: var(--red); background: #fff; }
+
+/* ── Stages edit ── */
+.stages-list { display: flex; flex-direction: column; gap: 12px; }
+.stage-edit-card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; background: var(--muted);
+}
+.stage-edit-num {
+  font-size: 11px; font-weight: 700; color: var(--red); margin-bottom: 8px;
+}
+.stage-edit-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.stage-edit-full { grid-column: 1 / -1; }
+
+/* ── Prompts ── */
+.prompts-grid { display: flex; flex-direction: column; gap: 16px; }
+.prompt-item .field-label { margin-bottom: 5px; }
+.prompt-item .field-textarea { min-height: 120px; }
+
+/* ── Save row ── */
+.save-row {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.btn-cancel {
+  padding: 9px 20px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--white); font-size: 14px; font-weight: 600;
+  cursor: pointer; color: var(--dark); font-family: inherit; transition: all .2s;
+}
+.btn-cancel:hover { border-color: var(--dark); }
+.btn-save {
+  padding: 9px 24px; border-radius: 8px; border: none;
+  background: var(--red); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background .2s;
+}
+.btn-save:hover { background: var(--red-dk); }
+.btn-save:disabled { background: #ccc; cursor: not-allowed; }
+
+/* ── Delete modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: none; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--white); border-radius: 16px; padding: 32px 28px;
+  max-width: 380px; width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,.2);
+  text-align: center;
+}
+.modal-box .modal-icon { font-size: 44px; margin-bottom: 14px; }
+.modal-box h3 { font-size: 18px; font-weight: 800; color: var(--dark); margin-bottom: 8px; }
+.modal-box p { font-size: 14px; color: var(--gray); line-height: 1.6; margin-bottom: 24px; }
+.modal-btns { display: flex; gap: 10px; }
+.modal-btns button { flex: 1; padding: 11px; border-radius: 9px; font-size: 14px;
+  font-weight: 700; cursor: pointer; font-family: inherit; border: none; transition: all .2s; }
+.modal-cancel { background: var(--muted); color: var(--dark); border: 1px solid var(--border) !important; }
+.modal-cancel:hover { background: #e8e8e8; }
+.modal-confirm { background: var(--red); color: #fff; }
+.modal-confirm:hover { background: var(--red-dk); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1a1a2e; color: #fff; padding: 12px 22px; border-radius: 10px;
+  font-size: 14px; font-weight: 600; opacity: 0; transition: all .3s;
+  pointer-events: none; white-space: nowrap; z-index: 2000;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { background: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="logo">KT</span>
+  <span class="title">스크립트 설정 관리</span>
+  <a class="home-btn" href="index.html">← 홈으로</a>
+</div>
+
+<div class="container">
+
+  <div class="page-header">
+    <h2>저장된 스크립트 목록</h2>
+    <span class="count-badge" id="countBadge">0개</span>
+    <button class="refresh-btn" onclick="loadList()">↻ 새로고침</button>
+  </div>
+
+  <div id="spinnerWrap" class="spinner-wrap">
+    <div class="spinner"></div>
+    <p>목록을 불러오는 중...</p>
+  </div>
+
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div class="icon">📂</div>
+    <p>저장된 스크립트가 없습니다.<br>스크립트 분석 페이지에서 분석 후 저장해 주세요.</p>
+  </div>
+
+  <div id="configList"></div>
+
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-icon">🗑️</div>
+    <h3>스크립트 삭제</h3>
+    <p id="deleteModalMsg">이 스크립트를 삭제하시겠습니까?<br>삭제된 데이터는 복구할 수 없습니다.</p>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeDeleteModal()">취소</button>
+      <button class="modal-confirm" id="modalConfirmBtn" onclick="confirmDelete()">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API     = 'https://your-api-url.execute-api.ap-northeast-2.amazonaws.com/';
+const API_KEY = 'SET_API_KEY_HERE';
+
+let scripts         = [];
+let pendingDeleteKey = null;
+let detailCache     = {};   // key → full config data
+let openCardKey     = null;
+
+// ── API helper ─────────────────────────────────────────────────────────────────
+async function callAPI(body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (API_KEY && API_KEY !== 'SET_API_KEY_HERE') headers['X-Training-Key'] = API_KEY;
+  const res = await fetch(API, {
+    method: 'POST', headers,
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `오류 (${res.status})`);
+  return data;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+}
+
+// ── Load list ──────────────────────────────────────────────────────────────────
+async function loadList() {
+  document.getElementById('spinnerWrap').style.display = 'block';
+  document.getElementById('emptyState').style.display  = 'none';
+  document.getElementById('configList').innerHTML = '';
+  openCardKey = null;
+
+  try {
+    const data = await callAPI({ action: 'list_scripts' });
+    scripts = data.scripts || [];
+    document.getElementById('countBadge').textContent = `${scripts.length}개`;
+
+    if (scripts.length === 0) {
+      document.getElementById('emptyState').style.display = 'block';
+    } else {
+      renderList();
+    }
+  } catch (e) {
+    showToast('목록 로드 실패: ' + e.message, true);
+  } finally {
+    document.getElementById('spinnerWrap').style.display = 'none';
+  }
+}
+
+// ── Render list ────────────────────────────────────────────────────────────────
+function renderList() {
+  const container = document.getElementById('configList');
+  container.innerHTML = '';
+  scripts.forEach(s => container.appendChild(makeCard(s)));
+}
+
+function makeCard(s) {
+  const div = document.createElement('div');
+  div.className = 'config-card';
+  div.id = 'card-' + encodeKey(s.key);
+
+  const createdStr = s.created_at
+    ? new Date(s.created_at).toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : '-';
+
+  div.innerHTML = `
+    <div class="config-header" onclick="toggleCard('${escAttr(s.key)}')">
+      <div class="config-icon">📋</div>
+      <div class="config-info">
+        <div class="config-name">${esc(s.script_name || '이름 없음')}</div>
+        <div class="config-subtitle">${esc(s.script_title || '')}</div>
+        <div class="config-meta">
+          <span class="meta-badge stage">${s.stage_count || 0}단계</span>
+          <span class="meta-date">${createdStr}</span>
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-delete" onclick="openDeleteModal(event,'${escAttr(s.key)}','${escAttr(s.script_name || '')}')">삭제</button>
+        <span class="toggle-icon">▼</span>
+      </div>
+    </div>
+    <div class="config-body" id="body-${encodeKey(s.key)}">
+      <div class="detail-spinner">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function encodeKey(key) {
+  return btoa(key).replace(/[^a-zA-Z0-9]/g, '_');
+}
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+  return String(str).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+// ── Toggle card ────────────────────────────────────────────────────────────────
+async function toggleCard(key) {
+  const cardEl = document.getElementById('card-' + encodeKey(key));
+  const isOpen = cardEl.classList.contains('open');
+
+  // Close previously open card
+  if (openCardKey && openCardKey !== key) {
+    const prev = document.getElementById('card-' + encodeKey(openCardKey));
+    if (prev) prev.classList.remove('open');
+  }
+
+  if (isOpen) {
+    cardEl.classList.remove('open');
+    openCardKey = null;
+    return;
+  }
+
+  cardEl.classList.add('open');
+  openCardKey = key;
+
+  const body = document.getElementById('body-' + encodeKey(key));
+
+  // Already loaded
+  if (detailCache[key]) {
+    renderEditForm(body, detailCache[key], key);
+    return;
+  }
+
+  // Show spinner and load
+  body.innerHTML = '<div class="detail-spinner"><div class="spinner"></div></div>';
+  try {
+    const data = await callAPI({ action: 'load_script', key });
+    detailCache[key] = data;
+    renderEditForm(body, data, key);
+  } catch (e) {
+    body.innerHTML = `<p style="color:var(--red);padding:16px">로드 실패: ${esc(e.message)}</p>`;
+  }
+}
+
+// ── Render edit form ───────────────────────────────────────────────────────────
+function renderEditForm(container, data, key) {
+  const stages = data.stages || [];
+
+  const stagesHtml = stages.map((st, i) => `
+    <div class="stage-edit-card">
+      <div class="stage-edit-num">단계 ${st.id || i + 1}</div>
+      <div class="stage-edit-grid">
+        <div class="field-group">
+          <label class="field-label">단계명</label>
+          <input class="field-input" id="s${i}_name" value="${esc(st.name || '')}" placeholder="단계명">
+        </div>
+        <div class="field-group">
+          <label class="field-label">성공 기준</label>
+          <input class="field-input" id="s${i}_success" value="${esc(st.success_criteria || '')}" placeholder="성공 기준">
+        </div>
+        <div class="field-group stage-edit-full">
+          <label class="field-label">목표 설명</label>
+          <input class="field-input" id="s${i}_desc" value="${esc(st.description || '')}" placeholder="이 단계에서 달성할 목표">
+        </div>
+        <div class="field-group stage-edit-full">
+          <label class="field-label">핵심 행동 (한 줄에 하나씩)</label>
+          <textarea class="field-textarea" id="s${i}_actions" rows="3" placeholder="핵심 행동 1&#10;핵심 행동 2">${esc((st.key_actions || []).join('\n'))}</textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="form-section">
+      <div class="form-section-title">기본 정보 <span class="section-badge">편집 가능</span></div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">스크립트 이름</label>
+          <input class="field-input" id="f_script_name" value="${esc(data.script_name || '')}" placeholder="스크립트 이름">
+        </div>
+        <div class="field-group">
+          <label class="field-label">스크립트 제목</label>
+          <input class="field-input" id="f_script_title" value="${esc(data.script_title || '')}" placeholder="스크립트 제목">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">훈련 단계 <span class="section-badge">${stages.length}단계</span></div>
+      <div class="stages-list">${stagesHtml}</div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">에이전트 프롬프트 <span class="section-badge">4종</span></div>
+      <div class="prompts-grid">
+        <div class="prompt-item field-group">
+          <label class="field-label">고객 페르소나 프롬프트</label>
+          <textarea class="field-textarea" id="f_persona_prompt" rows="5">${esc(data.persona_prompt || '')}</textarea>
+        </div>
+        <div class="prompt-item field-group">
+          <label class="field-label">힌트 에이전트 프롬프트</label>
+          <textarea class="field-textarea" id="f_hint_prompt" rows="4">${esc(data.hint_prompt || '')}</textarea>
+        </div>
+        <div class="prompt-item field-group">
+          <label class="field-label">평가 에이전트 프롬프트</label>
+          <textarea class="field-textarea" id="f_evaluation_prompt" rows="4">${esc(data.evaluation_prompt || '')}</textarea>
+        </div>
+        <div class="prompt-item field-group">
+          <label class="field-label">추천 에이전트 프롬프트</label>
+          <textarea class="field-textarea" id="f_recommendation_prompt" rows="4">${esc(data.recommendation_prompt || '')}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="save-row">
+      <button class="btn-cancel" onclick="cancelEdit('${escAttr(key)}')">취소</button>
+      <button class="btn-save" id="saveBtn-${encodeKey(key)}" onclick="saveScript('${escAttr(key)}',${stages.length})">변경 사항 저장</button>
+    </div>
+  `;
+}
+
+// ── Cancel edit ────────────────────────────────────────────────────────────────
+function cancelEdit(key) {
+  const cardEl = document.getElementById('card-' + encodeKey(key));
+  cardEl.classList.remove('open');
+  openCardKey = null;
+}
+
+// ── Save script ────────────────────────────────────────────────────────────────
+async function saveScript(key, stageCount) {
+  const saveBtnId = 'saveBtn-' + encodeKey(key);
+  const saveBtn = document.getElementById(saveBtnId);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '저장 중...'; }
+
+  try {
+    const stages = [];
+    for (let i = 0; i < stageCount; i++) {
+      const name    = document.getElementById(`s${i}_name`)?.value.trim() || '';
+      const desc    = document.getElementById(`s${i}_desc`)?.value.trim() || '';
+      const success = document.getElementById(`s${i}_success`)?.value.trim() || '';
+      const actText = document.getElementById(`s${i}_actions`)?.value || '';
+      const actions = actText.split('\n').map(l => l.trim()).filter(Boolean);
+      stages.push({ id: i + 1, name, description: desc, key_actions: actions, success_criteria: success });
+    }
+
+    const updatedData = {
+      script_name:           document.getElementById('f_script_name')?.value.trim() || '',
+      script_title:          document.getElementById('f_script_title')?.value.trim() || '',
+      stages,
+      persona_prompt:        document.getElementById('f_persona_prompt')?.value.trim() || '',
+      hint_prompt:           document.getElementById('f_hint_prompt')?.value.trim() || '',
+      evaluation_prompt:     document.getElementById('f_evaluation_prompt')?.value.trim() || '',
+      recommendation_prompt: document.getElementById('f_recommendation_prompt')?.value.trim() || '',
+    };
+
+    await callAPI({ action: 'update_script', key, data: updatedData });
+
+    // Update cache and list item
+    detailCache[key] = { ...detailCache[key], ...updatedData };
+    const scriptEntry = scripts.find(s => s.key === key);
+    if (scriptEntry) {
+      scriptEntry.script_name  = updatedData.script_name;
+      scriptEntry.script_title = updatedData.script_title;
+      scriptEntry.stage_count  = stages.length;
+    }
+
+    // Refresh header info in card
+    const cardEl = document.getElementById('card-' + encodeKey(key));
+    if (cardEl) {
+      const nameEl = cardEl.querySelector('.config-name');
+      const subEl  = cardEl.querySelector('.config-subtitle');
+      if (nameEl) nameEl.textContent = updatedData.script_name || '이름 없음';
+      if (subEl)  subEl.textContent  = updatedData.script_title || '';
+    }
+
+    showToast('저장이 완료되었습니다.');
+  } catch (e) {
+    showToast('저장 실패: ' + e.message, true);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '변경 사항 저장'; }
+  }
+}
+
+// ── Delete modal ───────────────────────────────────────────────────────────────
+function openDeleteModal(e, key, name) {
+  e.stopPropagation();
+  pendingDeleteKey = key;
+  document.getElementById('deleteModalMsg').innerHTML =
+    `<strong>${esc(name)}</strong> 스크립트를 삭제하시겠습니까?<br>삭제된 데이터는 복구할 수 없습니다.`;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+  pendingDeleteKey = null;
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteKey) return;
+  const key = pendingDeleteKey;
+  const confirmBtn = document.getElementById('modalConfirmBtn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = '삭제 중...';
+
+  try {
+    await callAPI({ action: 'delete_script', key });
+
+    // Remove from scripts array and re-render
+    scripts = scripts.filter(s => s.key !== key);
+    delete detailCache[key];
+    document.getElementById('countBadge').textContent = `${scripts.length}개`;
+
+    if (scripts.length === 0) {
+      document.getElementById('configList').innerHTML = '';
+      document.getElementById('emptyState').style.display = 'block';
+    } else {
+      renderList();
+    }
+
+    closeDeleteModal();
+    showToast('삭제되었습니다.');
+  } catch (e) {
+    showToast('삭제 실패: ' + e.message, true);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '삭제';
+  }
+}
+
+// Close modal on overlay click
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+loadList();
+</script>
+</body>
+</html>

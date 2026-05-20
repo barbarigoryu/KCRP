@@ -99,6 +99,40 @@ def handle_load_script(body, headers):
     return ok(data, headers)
 
 
+# ── delete_script ─────────────────────────────────────────────────────────────
+def handle_delete_script(body, headers):
+    if not DATA_BUCKET:
+        return err(500, "DATA_BUCKET 환경변수가 설정되지 않았습니다.", headers)
+    key = body.get('key', '')
+    if not key or not key.startswith('training-configs/'):
+        return err(400, '잘못된 키입니다.', headers)
+    s3.delete_object(Bucket=DATA_BUCKET, Key=key)
+    return ok({'success': True}, headers)
+
+
+# ── update_script ─────────────────────────────────────────────────────────────
+def handle_update_script(body, headers):
+    if not DATA_BUCKET:
+        return err(500, "DATA_BUCKET 환경변수가 설정되지 않았습니다.", headers)
+    key = body.get('key', '')
+    if not key or not key.startswith('training-configs/'):
+        return err(400, '잘못된 키입니다.', headers)
+    data = body.get('data', {})
+    if not data:
+        return err(400, '데이터가 없습니다.', headers)
+    resp = s3.get_object(Bucket=DATA_BUCKET, Key=key)
+    existing = json.loads(resp['Body'].read())
+    updated = {**existing, **data}
+    updated['id'] = existing.get('id', updated.get('id', ''))
+    updated['created_at'] = existing.get('created_at', updated.get('created_at', ''))
+    s3.put_object(
+        Bucket=DATA_BUCKET, Key=key,
+        Body=json.dumps(updated, ensure_ascii=False, indent=2),
+        ContentType="application/json",
+    )
+    return ok({'success': True}, headers)
+
+
 # ── chat (Master Agent + Customer Persona Agent, parallel) ────────────────────
 MASTER_SYSTEM = """당신은 영업 훈련 세션의 단계 관리자입니다.
 
@@ -497,6 +531,8 @@ def lambda_handler(event, context):
         elif action == "analyze_stages":  return handle_analyze_stages(body, headers)
         elif action == "analyze_prompts": return handle_analyze_prompts(body, headers)
         elif action == "save":            return handle_save(body, headers)
+        elif action == "delete_script":   return handle_delete_script(body, headers)
+        elif action == "update_script":   return handle_update_script(body, headers)
         elif action == "save_session":    return handle_save_session(body, headers)
         elif action == "list_sessions":   return handle_list_sessions(body, headers)
         elif action == "load_session":    return handle_load_session(body, headers)
